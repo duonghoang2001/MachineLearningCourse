@@ -14,9 +14,10 @@
 
 # initialize
 MAX_DEPTH = 3
-NUM_BINS = 4 # always greater than or equal to 1
-DATA_FILE = 'synthetic-4.csv'
+NUM_BINS = 5 # always greater than or equal to 1
+DATA_FILE = 'synthetic-3.csv'
 INVALID_VALUE = -1
+MARGIN = 0.05
 
 # import libraries
 import pandas as pd                     # analysing data
@@ -34,14 +35,15 @@ class Node():
         return len(self.children) == 0
   
 
-class DecisionTreeClassifier(Node):
-    def __init__(self, data):
+class DecisionTree(Node):
+    def __init__(self, data: pd.DataFrame):
+        self.training_data = data
         self.label_index = len(data.columns) - 1
         self.features_list = (data.columns.tolist())[:self.label_index]
         self.boundaries = [self.find_boundaries(data.iloc[:, feature]) for feature in self.features_list]
-        self.discretized_data = self.discretize_training_data(data)
-
+        self.discretized_data = self.discretize_data(data, self.features_list)
         self.root = self.ID3(self.discretized_data, self.label_index, self.features_list, 0)
+
 
     def get_entropy(self, class_label_data: pd.DataFrame):
         '''Return entropy = sum of each class label probability times its log2'''
@@ -85,7 +87,7 @@ class DecisionTreeClassifier(Node):
         
         # get list of examples' unique class labels
         unique_class_labels = examples.iloc[:, target_attr].value_counts().index.to_list()
-
+        
         # if examples are homogeneous, return root with label = unique val of targetAttr
         if len(unique_class_labels) == 1: 
             root.value = unique_class_labels[0]
@@ -107,12 +109,11 @@ class DecisionTreeClassifier(Node):
                 root.children.append(new_branch)
                 # let examples(vi) be the subset of examples that have vi for A
                 branch_examples = examples.loc[examples.iloc[:, A] == value]
-                # if examples(vi) is empty,
+                # if examples(vi) is empty or tree about to reach max depth,
                 if len(branch_examples) == 0 or depth == MAX_DEPTH - 1:
                     # then below this branch add a leaf node with 
                     # label = most common val of targetAttr in examples
-                    leaf = Node()
-                    leaf.value = examples.iloc[:, target_attr].value_counts().idxmax()
+                    leaf = Node(examples.iloc[:, target_attr].value_counts().idxmax())
                     new_branch.children.append(leaf)
                 else:
                     # below this new branch add the subtree
@@ -138,10 +139,15 @@ class DecisionTreeClassifier(Node):
     def find_boundaries(self, data: pd.DataFrame):
         '''Return boundaries that separate data to equal distance intervals'''
 
-        # divide data into NUM_BINS feature intervals
-        intervals = data.value_counts(bins=NUM_BINS).sort_index(ascending=True)
-        # find boundaries which are the right ends of the feature intervals
-        boundaries = [intervals.index[i].right for i in range(NUM_BINS - 1)]
+        # find max, min values in feature
+        max_val = data.max()
+        min_val = data.min()
+
+        # calculate width for equal distance intervals
+        width = (max_val - min_val) / NUM_BINS
+
+        # get boundaries
+        boundaries = [(min_val + (i+1) * width) for i in range(NUM_BINS - 1)]
 
         return boundaries
 
@@ -159,46 +165,28 @@ class DecisionTreeClassifier(Node):
         # if fails to categorize in the previous intervals,
         # value is in interval [last bound, inf)
         if discretized_value == -1: discretized_value = NUM_BINS - 1
-
+        
         return discretized_value
 
 
-    def discretize_features(self, data: pd.DataFrame):
+    def discretize_data(self, data: pd.DataFrame, features_to_discretized: list):
         '''Return equal distance discretized dataset of given continuous dataset'''
 
-        # initialize new dataset and list of boundaries
-        discretized_data = pd.DataFrame()
-
-        num_features = len(data.columns)
+        discretized_data = data.copy()
         # equal distance discretize each feature
-        for col in range(num_features):
-            # discretize feature values based on the boundaries
-            discretized_feature = []
-            for i in range(len(data)): # for each feature value
-                discretized_feature.append(self.get_discretize_value(data.at[i, col], self.boundaries[col]))
-            
-            # add new discretized feature values to new dataset
-            discretized_data[col] = discretized_feature
+        for col in features_to_discretized:
+            # typecast column from continuous data to discrete data
+            discretized_data.iloc[:, col] = discretized_data.iloc[:, col].astype(int)
 
-        #discretized_data.to_csv(path_or_buf=f'disc_{DATA_FILE}', index=False, header=None)
+            for row in range(len(data)): # for each feature value
+                # update entry with corresponding interval number
+                discretized_data.at[row, col] = self.get_discretize_value(
+                                    data.at[row, col], self.boundaries[col])
         
         return discretized_data
 
 
-    def discretize_training_data(self, data: pd.DataFrame):
-        '''Return equal distance discretized training dataset of 
-        given continuous training dataset with class labels
-        '''
-        # discretize all features
-        discretized_data = self.discretize_features(data.iloc[:, :self.label_index])
-
-        # add class_label column (last column) to discretized data
-        discretized_data[self.label_index] = data.iloc[:, self.label_index] 
-
-        return discretized_data
-
-
-    def classify_datum(self, current: Node(), datum: pd.DataFrame):
+    def classify_datum(self, current: Node(), datum: list):
         '''Return classification prediction of datum using decision tree'''
         classification = INVALID_VALUE # initialize prediction
 
@@ -221,18 +209,20 @@ class DecisionTreeClassifier(Node):
         return classification
 
 
-
     def classify_data(self, test_data: pd.DataFrame):
         '''Return list of test data classification predictions'''
-
-        discretized_test_data = self.discretize_features(test_data).values.tolist()
+        
+        # discretize test data
+        test_data_features = test_data.columns.tolist()
+        discretized_test_data = self.discretize_data(test_data, test_data_features).values.tolist()
         
         classifications = [] # initialize list of predictions for each datum
 
+        # classify each datum using decision tree
         for i in range(len(discretized_test_data)):
             classifications.append(self.classify_datum(self.root, discretized_test_data[i]))
         
-        return classifications
+        return pd.DataFrame(data=classifications)
 
 
     def calculate_accuracy(self, test_data: pd.DataFrame, test_label_key: pd.DataFrame):
@@ -240,33 +230,113 @@ class DecisionTreeClassifier(Node):
 
         # compare datasets as lists of labels
         predictions = self.classify_data(test_data) 
-        test_key = test_label_key.values.tolist()
 
-        compare = pd.DataFrame(list(zip(predictions, test_key)), columns=['Prediction', 'Key'])
-        compare.to_csv(path_or_buf=f'comparision.csv', index=False)
+        # create csv file with first column is prediction, second column is key
+        compare = pd.concat([predictions, test_label_key], axis=1, join='inner')
+        compare.to_csv(path_or_buf=f'classified_{DATA_FILE}', index=False)
 
         correct_ct = 0 # count correct predictions
-        data_ct = len(test_key) # total number of data to compare
+        data_ct = len(test_label_key) # total number of data to compare
         # compare prediction with test key
-        for i in range (data_ct):
-            #print(predictions[i, 0])
-            if predictions[i] == test_key[i]: correct_ct += 1
+        for i in range (data_ct):         
+            if predictions.iat[i, 0] == test_label_key.iat[i, 0]: correct_ct += 1
 
         return correct_ct / data_ct
+
+
+    def get_tree_leaves(self, current: Node, feature_1, feature_2, classifications: list):
+        # get all classifications in the form:
+        # {feature_1: interval_no, feature_2: interval_no, class_label: label}
+        
+        
+        if current.is_leaf():
+            classifications.append([feature_1, feature_2, current.value])
+        else: 
+            for child in current.children:
+                if current.value == 0:
+                    feature_1 = child.value
+                else:
+                    feature_2 = child.value
+                self.get_tree_leaves(child.children[0], feature_1, feature_2, classifications)
+
+        return classifications
+
+
+    def visualize_data(self):
+        '''Scatterplot visualization of training data and 
+        decision tree's classifications color coded in background
+        '''
+
+        self.training_data.columns = ['feature_1', 'feature_2', 'class_label']
+        colors = {0: 'red', 1: 'blue'} # class label color dictionary
+
+        # create training data scatter plot color coded by class label
+        axes = plt.gca()
+        groups = self.training_data.groupby('class_label')
+        for key, group in groups:
+            group.plot(ax=axes, kind='scatter', x='feature_1', y='feature_2', 
+            label=key, color=colors[key])
+        plt.legend()
+        plt.margins(x=MARGIN, y=MARGIN)
+
+        # get x gridlines based on feature 1 boundaries and x-axis limits
+        x_left, x_right = axes.get_xlim()
+        #x_left -= MARGIN
+        #x_right += MARGIN
+        x_grids = (self.boundaries[0])[:] # get a copy of feature 1 boundaries
+        x_grids.insert(0, x_left)
+        x_grids.append(x_right)
+        print(x_grids)
+
+        # get y gridlines based on feature 2 boundaries and y-axis limits
+        y_left, y_right = axes.get_ylim()
+        #y_left -= MARGIN*2
+        #y_right += MARGIN*2
+        y_grids = (self.boundaries[1])[:] # get a copy of feature 2 boundaries
+        y_grids.insert(0, y_left)
+        y_grids.append(y_right)
+        print(y_grids)
+
+        # get all classifications
+        classifications = []
+        classifications = self.get_tree_leaves(self.root, INVALID_VALUE, 
+                                                INVALID_VALUE, classifications)
+
+        # fill areas limited by gridlines based on decision tree classifications
+        for classification in classifications:
+            # initialize grid values
+            Xs = []
+            Ys = []
+            # get x-axis gridlines
+            if classification[0] == INVALID_VALUE: Xs.extend((x_left, x_right))
+            else:
+                Xs.extend((x_grids[classification[0]], x_grids[classification[0] + 1]))
+            # get y-axis gridlines
+            if classification[1] == INVALID_VALUE: Ys.extend((y_left, y_right))
+            else:
+                Ys.extend((y_grids[classification[1]], y_grids[classification[1] + 1]))
+            # color area restricted by x and y gridlines
+            plt.fill_between(x=Xs, y1=Ys[0], y2=Ys[1], 
+                            facecolor=colors[classification[2]], alpha =0.3)
+
+        # display plot and export to file
+        plt.show()
 
 
 def main():
     # read data
     data = pd.read_csv(DATA_FILE, header=None)   
     label_index = len(data.columns) - 1
-    test_data = data.iloc[:, :label_index]
-    test_label_key = data.iloc[:, label_index]
+    test_data = pd.DataFrame(data.iloc[:, :label_index])
+    test_label_key = pd.DataFrame(data.iloc[:, label_index])
 
     # make decision tree
-    tree = DecisionTreeClassifier(data)
+    tree = DecisionTree(data)
     tree.printTree(tree.root, 0)
 
     # calculate predictions accuracy
     print('Accuracy of tree =', tree.calculate_accuracy(test_data, test_label_key))    
 
+    # plot 
+    tree.visualize_data()
 main()
