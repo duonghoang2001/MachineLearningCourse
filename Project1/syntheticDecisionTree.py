@@ -1,12 +1,12 @@
 # Project 1: Decision Trees
 # Author: Duong Hoang
 # CS 460G - 001
-# Due Date: Feb 15th, 2022
+# Due Date: Feb 18th, 2022
 
 '''
-    Purpose: predict class label of a given data using decision tree
+    Purpose: predict class label of a given synthetic data using decision tree
     Pre-cond: a synthetic data csv file
-    Post-cond: decision tree, predicted class label, and accuracy of predictions
+    Post-cond: decision tree, predicted class label (0/1), and accuracy of predictions
 
 '''
 
@@ -15,7 +15,7 @@
 # initialize
 MAX_DEPTH = 3
 NUM_BINS = 5 # always greater than or equal to 1
-DATA_FILE = 'synthetic-3'
+DATA_FILE = 'synthetic-4'
 INVALID_VALUE = -1
 
 # import libraries
@@ -39,9 +39,11 @@ class DecisionTree(Node):
         self.training_data = data
         self.label_index = len(data.columns) - 1
         self.features_list = (data.columns.tolist())[:self.label_index]
-        self.boundaries = [self.find_boundaries(data.iloc[:, feature]) for feature in self.features_list]
+        self.boundaries = [self.find_boundaries(data.iloc[:, feature]) 
+                            for feature in self.features_list]
         self.discretized_data = self.discretize_data(data, self.features_list)
-        self.root = self.ID3(self.discretized_data, self.label_index, self.features_list, 0)
+        self.root = self.ID3(self.discretized_data, self.label_index, 
+                                self.features_list, 0)
 
 
     def get_entropy(self, class_label_data: pd.DataFrame):
@@ -267,31 +269,24 @@ class DecisionTree(Node):
         colors = {0: 'red', 1: 'blue'} # class label color dictionary
 
         # create training data scatter plot color coded by class label
-        axes = plt.gca()
+        axes = plt.gca() # create axes
         groups = self.training_data.groupby('class_label')
         for key, group in groups:
             group.plot(ax=axes, kind='scatter', x='feature_1', y='feature_2', 
             label=key, color=colors[key])
-        plt.legend()
-        plt.margins(x=0, y=0)
+        plt.legend() # add legend to plot
 
         # get x gridlines based on feature 1 boundaries and x-axis limits
         x_left, x_right = axes.get_xlim()
-        #x_left -= MARGIN
-        #x_right += MARGIN
         x_grids = (self.boundaries[0])[:] # get a copy of feature 1 boundaries
         x_grids.insert(0, x_left)
         x_grids.append(x_right)
-        print(x_grids)
 
         # get y gridlines based on feature 2 boundaries and y-axis limits
         y_left, y_right = axes.get_ylim()
-        #y_left -= MARGIN*2
-        #y_right += MARGIN*2
         y_grids = (self.boundaries[1])[:] # get a copy of feature 2 boundaries
         y_grids.insert(0, y_left)
         y_grids.append(y_right)
-        print(y_grids)
 
         # get all classifications
         classifications = []
@@ -305,21 +300,23 @@ class DecisionTree(Node):
             Ys = []
             # get x-axis gridlines
             if classification[0] == INVALID_VALUE: Xs.extend((x_left, x_right))
-            else:
-                Xs.extend((x_grids[classification[0]], x_grids[classification[0] + 1]))
+            else: Xs.extend((x_grids[classification[0]], x_grids[classification[0] + 1]))
             # get y-axis gridlines
             if classification[1] == INVALID_VALUE: Ys.extend((y_left, y_right))
-            else:
-                Ys.extend((y_grids[classification[1]], y_grids[classification[1] + 1]))
+            else: Ys.extend((y_grids[classification[1]], y_grids[classification[1] + 1]))
             # color area restricted by x and y gridlines
             plt.fill_between(x=Xs, y1=Ys[0], y2=Ys[1], 
                             facecolor=colors[classification[2]], alpha =0.3)
 
+        plt.margins(x=0, y=0) # eliminate whitespace surround plot
+
+        # save plot
+        plt.savefig(f'visualize_{DATA_FILE}.png', bbox_inches='tight')
+
         # display plot and export to file
         plt.show()
 
-        # save plot
-        plt.savefig(f'visualize_{DATA_FILE}.png')
+        
 
 
 def main():
@@ -331,7 +328,7 @@ def main():
 
     # make decision tree
     tree = DecisionTree(data)
-    tree.printTree(tree.root, 0)
+    #tree.printTree(tree.root, 0)
 
     # calculate predictions accuracy
     print('Accuracy of tree =', tree.calculate_accuracy(test_data, test_label_key))    

@@ -1,12 +1,13 @@
 # Project 1: Decision Trees
 # Author: Duong Hoang
 # CS 460G - 001
-# Due Date: Feb 15th, 2022
+# Due Date: Feb 18th, 2022
 
 '''
-    Purpose: predict class label of a given data using decision tree
-    Pre-cond: a synthetic data csv file
-    Post-cond: decision tree, predicted class label, and accuracy of predictions
+    Purpose: predict legendary of a given pokemon data using decision tree
+    Pre-cond: a pokemon stats data csv file and 
+            its corresponding legendary classification data csv file
+    Post-cond: decision tree, predicted legendary (True/False), and accuracy of predictions
 
 '''
 
@@ -22,7 +23,6 @@ INVALID_VALUE = -1
 # import libraries
 import pandas as pd                     # analysing data
 import numpy as np                      # handling data
-import matplotlib.pyplot as plt         # visualizing data
 
 
 class Node():
@@ -252,7 +252,6 @@ def main():
 
     # get training dataset
     data = pd.concat([features, labels], axis=1, join='inner')
-    #data.to_csv(path_or_buf='pokemonData.csv')
 
     # make decision tree
     tree = DecisionTreeClassifier(data, labels.columns[0], list(features.columns))
