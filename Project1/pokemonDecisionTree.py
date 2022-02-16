@@ -218,12 +218,13 @@ class DecisionTreeClassifier(Node):
         '''Return list of test data classification predictions'''
 
         test_features = test_data.columns.tolist()
-        discretized_test_data = self.discretize_data(test_data, test_features[:7])
+        discretized_test_data = self.discretize_data(test_data, test_features[:8])
         
         classifications = [] # initialize list of predictions for each datum
 
         for i in range(len(discretized_test_data)):
-            classifications.append(self.classify_datum(self.root, discretized_test_data.iloc[i, :]))
+            classifications.append(self.classify_datum(
+                                self.root, discretized_test_data.iloc[i, :]))
         
         return pd.DataFrame(data=classifications, columns=['Prediction'])
 
