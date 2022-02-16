@@ -6,7 +6,8 @@
 '''
     Purpose: predict class label of a given synthetic data using decision tree
     Pre-cond: a synthetic data csv file
-    Post-cond: decision tree, predicted class label (0/1), and accuracy of predictions
+    Post-cond: decision tree, predicted class label (0/1), accuracy of classifier,
+                and scatter plot visualization
 
 '''
 
@@ -125,15 +126,15 @@ class DecisionTree(Node):
         return root
 
 
-    def printTree(self, root: Node, depth):
-        for i in range(depth):
-            print("\t", end="")
-        print(root.value, end="")
+    def print_tree(self, root: Node, depth):   
+        '''Print decision tree'''
+
+        print("\t"*(depth+1), end='')
         if root.is_leaf():
-            print(" -> ", root.value)
-        print()
+            print(" -> ", end='')
+        print(root.value)
         for child in root.children:
-            self.printTree(child, depth + 1)
+            self.print_tree(child, depth + 1)
 
 
     def find_boundaries(self, data: pd.DataFrame):
@@ -275,6 +276,7 @@ class DecisionTree(Node):
             group.plot(ax=axes, kind='scatter', x='feature_1', y='feature_2', 
             label=key, color=colors[key])
         plt.legend() # add legend to plot
+        plt.title(f'{DATA_FILE} Visualization')
 
         # get x gridlines based on feature 1 boundaries and x-axis limits
         x_left, x_right = axes.get_xlim()
@@ -328,7 +330,7 @@ def main():
 
     # make decision tree
     tree = DecisionTree(data)
-    #tree.printTree(tree.root, 0)
+    #tree.print_tree(tree.root, 0)
 
     # calculate predictions accuracy
     print('Accuracy of tree =', tree.calculate_accuracy(test_data, test_label_key))    

@@ -6,8 +6,9 @@
 '''
     Purpose: predict legendary of a given pokemon data using decision tree
     Pre-cond: a pokemon stats data csv file and 
-            its corresponding legendary classification data csv file
-    Post-cond: decision tree, predicted legendary (True/False), and accuracy of predictions
+                its corresponding legendary classification data csv file
+    Post-cond: decision tree, predicted legendary (True/False), 
+                and accuracy ofclassifier
 
 '''
 
@@ -128,15 +129,15 @@ class DecisionTreeClassifier(Node):
         return root
 
 
-    def printTree(self, root: Node, depth):
-        for i in range(depth):
-            print("\t", end="")
-        print(root.value, end="")
+    def print_tree(self, root: Node, depth):
+        '''Print decision tree'''
+
+        print("\t"*(depth+1), end='')
         if root.is_leaf():
-            print(" -> ", root.value)
-        print()
+            print(" -> ", end='')
+        print(root.value)
         for child in root.children:
-            self.printTree(child, depth + 1)
+            self.print_tree(child, depth + 1)
 
 
     def find_boundaries(self, data: pd.DataFrame):
@@ -255,7 +256,7 @@ def main():
 
     # make decision tree
     tree = DecisionTreeClassifier(data, labels.columns[0], list(features.columns))
-    tree.printTree(tree.root, 0)
+    #tree.print_tree(tree.root, 0)
 
     # calculate predictions accuracy
     print('Accuracy of tree =', tree.calculate_accuracy(features, labels))    
