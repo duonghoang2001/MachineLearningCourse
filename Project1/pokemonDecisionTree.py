@@ -39,8 +39,10 @@ class DecisionTreeClassifier(Node):
     def __init__(self, data, label, feature_names: list):
         self.label = label
         self.features = feature_names
-        self.boundaries = {feature: self.find_boundaries(data[feature]) for feature in self.features}
-        self.discretized_data = self.discretize_data(data, feature_names[:7])
+        self.boundaries = {feature: self.find_boundaries(data[feature]) 
+                            for feature in self.features}
+        # discretize all non-binary features (features' whose names are not 'type')
+        self.discretized_data = self.discretize_data(data, feature_names[:8]) 
         self.root = self.ID3(self.discretized_data, self.label, self.features, 0)
 
 
@@ -101,8 +103,9 @@ class DecisionTreeClassifier(Node):
             # the decision attr for root <- A
             root.value = A
             # for each possible value, vi, of A,
-            unique_values = examples[A].unique()
-            for value in unique_values:
+            possible_value_range = NUM_BINS
+            if 'Type' in A: possible_value_range = 2 # if A is binary feature
+            for value in range(possible_value_range):
                 # add a new tree branch below root, corresponding to the test A = vi
                 new_branch = Node(value)
                 root.children.append(new_branch)
@@ -176,7 +179,7 @@ class DecisionTreeClassifier(Node):
         # equal distance discretize each feature
         for col in features_to_discretized:
             # typecast column from continuous data to discrete data
-            discretized_data.iloc[:, col] = discretized_data.iloc[:, col].astype(int)
+            discretized_data[col] = discretized_data[col].astype(int)
             
             for row in range(len(data)): # for each feature value
                 # update entry with corresponding interval number
@@ -208,7 +211,6 @@ class DecisionTreeClassifier(Node):
             classification = current.value
         
         return classification
-
 
 
     def classify_data(self, test_data: pd.DataFrame):

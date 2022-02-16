@@ -243,9 +243,7 @@ class DecisionTree(Node):
 
 
     def get_tree_leaves(self, current: Node, feature_1, feature_2, classifications: list):
-        # get all classifications in the form:
-        # {feature_1: interval_no, feature_2: interval_no, class_label: label}
-        
+        '''Return a list of all possible classifications based on feature 1 and 2'''
         
         if current.is_leaf():
             classifications.append([feature_1, feature_2, current.value])
