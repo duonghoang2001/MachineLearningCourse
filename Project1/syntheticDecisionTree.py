@@ -15,9 +15,8 @@
 # initialize
 MAX_DEPTH = 3
 NUM_BINS = 5 # always greater than or equal to 1
-DATA_FILE = 'synthetic-3.csv'
+DATA_FILE = 'synthetic-3'
 INVALID_VALUE = -1
-MARGIN = 0.05
 
 # import libraries
 import pandas as pd                     # analysing data
@@ -102,8 +101,7 @@ class DecisionTree(Node):
             # the decision attr for root <- A
             root.value = A
             # for each possible value, vi, of A,
-            unique_values = examples.iloc[:, A].unique()
-            for value in unique_values:
+            for value in range(NUM_BINS):
                 # add a new tree branch below root, corresponding to the test A = vi
                 new_branch = Node(value)
                 root.children.append(new_branch)
@@ -233,7 +231,7 @@ class DecisionTree(Node):
 
         # create csv file with first column is prediction, second column is key
         compare = pd.concat([predictions, test_label_key], axis=1, join='inner')
-        compare.to_csv(path_or_buf=f'classified_{DATA_FILE}', index=False)
+        compare.to_csv(path_or_buf=f'classified_{DATA_FILE}.csv', index=False)
 
         correct_ct = 0 # count correct predictions
         data_ct = len(test_label_key) # total number of data to compare
@@ -277,7 +275,7 @@ class DecisionTree(Node):
             group.plot(ax=axes, kind='scatter', x='feature_1', y='feature_2', 
             label=key, color=colors[key])
         plt.legend()
-        plt.margins(x=MARGIN, y=MARGIN)
+        plt.margins(x=0, y=0)
 
         # get x gridlines based on feature 1 boundaries and x-axis limits
         x_left, x_right = axes.get_xlim()
@@ -322,10 +320,13 @@ class DecisionTree(Node):
         # display plot and export to file
         plt.show()
 
+        # save plot
+        plt.savefig(f'visualize_{DATA_FILE}.png')
+
 
 def main():
     # read data
-    data = pd.read_csv(DATA_FILE, header=None)   
+    data = pd.read_csv(f'{DATA_FILE}.csv', header=None)   
     label_index = len(data.columns) - 1
     test_data = pd.DataFrame(data.iloc[:, :label_index])
     test_label_key = pd.DataFrame(data.iloc[:, label_index])
