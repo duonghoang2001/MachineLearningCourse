@@ -226,8 +226,8 @@ class DecisionTree(Node):
         return pd.DataFrame(data=classifications)
 
 
-    def calculate_accuracy(self, test_data: pd.DataFrame, test_label_key: pd.DataFrame):
-        '''Return accuracy rate of decision tree predictions'''
+    def training_set_error(self, test_data: pd.DataFrame, test_label_key: pd.DataFrame):
+        '''Return number of incorrect predictions made by decision tree'''
 
         # compare datasets as lists of labels
         predictions = self.classify_data(test_data) 
@@ -236,13 +236,12 @@ class DecisionTree(Node):
         compare = pd.concat([predictions, test_label_key], axis=1, join='inner')
         compare.to_csv(path_or_buf=f'classified_{DATA_FILE}.csv', index=False)
 
-        correct_ct = 0 # count correct predictions
-        data_ct = len(test_label_key) # total number of data to compare
+        incorrect_ct = 0 # count incorrect predictions
         # compare prediction with test key
-        for i in range (data_ct):         
-            if predictions.iat[i, 0] == test_label_key.iat[i, 0]: correct_ct += 1
+        for i in range (len(test_label_key)):         
+            if predictions.iat[i, 0] != test_label_key.iat[i, 0]: incorrect_ct += 1
 
-        return correct_ct / data_ct
+        return incorrect_ct
 
 
     def get_tree_leaves(self, current: Node, feature_1, feature_2, classifications: list):
@@ -333,7 +332,11 @@ def main():
     #tree.print_tree(tree.root, 0)
 
     # calculate predictions accuracy
-    print('Accuracy of tree =', tree.calculate_accuracy(test_data, test_label_key))    
+    error_ct = tree.training_set_error(test_data, test_label_key)
+    data_ct = len(data)
+    error_rate = error_ct / data_ct
+    print(f'Training set error of tree = {error_ct}/{data_ct} = {error_rate}')    
+    print('Training set accuracy of tree =', str(1 - error_rate))
 
     # plot 
     tree.visualize_data()
