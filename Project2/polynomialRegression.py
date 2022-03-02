@@ -20,55 +20,43 @@
 
 # initialize
 DATA_FILE = 'synthetic-1'
-ALPHA = 0.1                     # learning rate
-NUM_EPOCHS = 1000               # iterations
+ALPHA = 2                       # learning rate
+NUM_EPOCHS = 50                 # iterations
+NUM_ORDERS = 5                  # polynomial order
 
 # import libraries
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Regression():
-    def __init__(self, X: pd.DataFrame, Y: pd.DataFrame, learning_rate: float, epochs: int):
-        self.X = X # features
-        self.Y = Y # classlabel
-        self.norm_X = self.normalize_data(X) # normalized features (range 0-1)
-        self.thetas = self.coefficients(self.norm_X.to_numpy(), Y.to_numpy(), 
-                                        learning_rate, epochs) # vector of coefficients
-
-
-    def find_limits(self, data: pd.DataFrame):
-        '''Return a list of [min, max] pair of each columns'''
-
-        limits = []
-        for col in range(len(data.columns)):
-            limits.append([min(data.iloc[:, col]), max(data.iloc[:, col])])
-
-        return limits
+    def __init__(self, X: pd.DataFrame, Y: pd.DataFrame, orders: int, learning_rate: float, epochs: int):
+        self.X = X              # features
+        self.Y = Y              # classlabel
+        self.orders = orders    # polynomial order
+        self.expanded_X = self.basis_expansion(X) # expanded features
+        self.thetas = self.coefficients(self.expanded_X, Y.to_numpy(),
+                                learning_rate, epochs) # vector of coefficients
             
-            
-    def normalize_data(self, data: pd.DataFrame):
-        '''Normalize feature values to range 0-1'''
+    
+    def basis_expansion(self, X: pd.DataFrame):
+        '''Return examples with expanded feature values using basis expansion'''
+        
+        expanded_X = X.to_numpy().copy()
+        # expand feature values by number of orders
+        for order in range(2, self.orders + 1):
+            expanded_X = np.append(expanded_X, np.power(X, order), axis=1)
 
-        normalized_data = data.copy()
-        # get [min, max] values of each column
-        limits = self.find_limits(data)
-
-        # for each entry in the dataframe
-        for row in range(len(data)):
-            for col in range(len(data.columns)):
-                # x_i = (x_i - min(x)) / (max(x) - min(x))
-                normalized_data.iat[row, col] = (normalized_data.iat[row, col] 
-                            - limits[col][0]) / (limits[col][1] - limits[col][0])
-
-        return normalized_data
+        return expanded_X
 
 
     def coefficients(self, X: np.matrix, Y: np.matrix, alpha: float, epochs: int):
         '''Return a vector of thetas using full batch update gradient descent'''
-
+        
         # add the bias feature x_0 = 1 to examples
         X = np.insert(X, 0, [1] * Y.shape[0], axis=1) # X is a [m x n] matrix
+        
         # initialize a list of thetas with random values
         m = X.shape[0] # batch size m = number of examples
         thetas = np.random.uniform(size=(X.shape[1], 1)) # [n x 1] matrix
@@ -90,12 +78,12 @@ class Regression():
     def linear_regression(self, X: pd.DataFrame):
         '''Return predictions of linear regression model'''
 
-        # normalize data
-        norm_X = self.normalize_data(X).to_numpy()
+        # expand data
+        expanded_X = self.basis_expansion(X)
         # add the bias feature x_0 = 1 to examples
-        norm_X = np.insert(norm_X, 0, [1] * norm_X.shape[0], axis=1) 
+        expanded_X = np.insert(expanded_X, 0, [1] * expanded_X.shape[0], axis=1) 
         # get model predictions h_theta = theta_n * x_n
-        predictions = norm_X.dot(self.thetas) 
+        predictions = expanded_X.dot(self.thetas) 
 
         return predictions
 
@@ -109,7 +97,7 @@ class Regression():
         predictions = self.linear_regression(X) # linear regressor's predictions
 
         # create csv file with first column is prediction, second column is key
-        df_predictions = pd.DataFrame(predictions, columns=['predict'])
+        df_predictions = pd.DataFrame(predictions)
         compare = pd.concat([df_predictions, Y], axis=1, join='inner')
         compare.to_csv(path_or_buf=f'classified_{DATA_FILE}.csv', index=False)
 
@@ -117,6 +105,33 @@ class Regression():
         J_theta = 1 / m * np.sum(np.square(np.subtract(predictions, Y.to_numpy())))
         
         return J_theta
+
+    
+    def visualize_model(self):
+        '''Scatterplot visualization of examples and polynomial regression line'''
+
+        # get regression model
+
+        x = np.linspace(np.floor(self.X.min()), np.ceil(self.X.max()), 100)
+
+        if self.orders == 2:
+            y = self.thetas[0] + self.thetas[1] * x + self.thetas[2] * x**2
+        elif self.orders == 3:
+            y = self.thetas[0] + self.thetas[1] * x + self.thetas[2] * x**2 + self.thetas[3] * x**3
+        else:
+            y = self.thetas[0] + self.thetas[1] * x + self.thetas[2] * x**2 + self.thetas[3] * x**3 + self.thetas[4] * x**4 + self.thetas[5] * x**5
+        
+
+        # create a scatter plot of examples
+        plt.scatter(x=self.X, y=self.Y, color='blue')
+        plt.plot(x, y, color='red')
+        plt.title(f'{DATA_FILE} {self.orders}-order Visualization')
+        plt.xlabel('Feature Value')
+        plt.ylabel('Class Label')
+
+        plt.margins(x=0, y=0) # eliminate whitespace surround plot
+        plt.savefig(f'visualize_{self.orders}-order_{DATA_FILE}.png', bbox_inches='tight')
+        plt.show() # display plot and export to file
 
 
 def main():
@@ -127,8 +142,9 @@ def main():
     Y = pd.DataFrame(data.iloc[:, label_index])     # classlabel
 
     # create linear regression model
-    model = Regression(X, Y, ALPHA, NUM_EPOCHS)
+    model = Regression(X, Y, NUM_ORDERS, ALPHA, NUM_EPOCHS)
     # output mean squared error
     print(model.loss_function(X, Y))
+    model.visualize_model()
 
 main()
