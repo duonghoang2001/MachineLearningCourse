@@ -19,8 +19,8 @@
 
 # initialize
 DATA_FILE = 'winequality-red'
-ALPHA = 0.1                     # learning rate
-NUM_EPOCHS = 1000               # iterations
+ALPHA = 0.01                    # learning rate
+NUM_EPOCHS = 3000               # iterations
 
 # import libraries
 import pandas as pd
@@ -99,7 +99,7 @@ class Regression():
         return predictions
 
 
-    def loss_function(self, X: pd.DataFrame, Y: pd.DataFrame):
+    def calculate_MSE(self, X: pd.DataFrame, Y: pd.DataFrame):
         '''Return the mean squared error of the model averaged over 
         the number of examples in the dataset
         '''
@@ -127,7 +127,9 @@ def main():
 
     # create linear regression model
     model = Regression(X, Y, ALPHA, NUM_EPOCHS)
+    # output weights of regression model
+    print('Weights:', model.thetas)
     # output mean squared error
-    print(model.loss_function(X, Y))
+    print('Mean Squared Error =', model.calculate_MSE(X, Y))
 
 main()

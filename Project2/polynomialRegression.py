@@ -19,10 +19,10 @@
 
 
 # initialize
-DATA_FILE = 'synthetic-1'
-ALPHA = 2                       # learning rate
-NUM_EPOCHS = 50                 # iterations
-NUM_ORDERS = 5                  # polynomial order
+DATA_FILE = 'synthetic-2'
+ALPHA = 0.007                # learning rate
+NUM_EPOCHS = 2000           # iterations
+ORDERS = {2, 3, 5}      # polynomial orders
 
 # import libraries
 import pandas as pd
@@ -59,7 +59,7 @@ class Regression():
         
         # initialize a list of thetas with random values
         m = X.shape[0] # batch size m = number of examples
-        thetas = np.random.uniform(size=(X.shape[1], 1)) # [n x 1] matrix
+        thetas = np.random.uniform(-3.0, 3.0, size=(X.shape[1], 1)) # [n x 1] matrix
 
         for epoch in range(epochs):
             # calculate h_theta =  sigma(theta_i * x_i)
@@ -88,7 +88,7 @@ class Regression():
         return predictions
 
 
-    def loss_function(self, X: pd.DataFrame, Y: pd.DataFrame):
+    def calculate_MSE(self, X: pd.DataFrame, Y: pd.DataFrame):
         '''Return the mean squared error of the model averaged over 
         the number of examples in the dataset
         '''
@@ -99,7 +99,7 @@ class Regression():
         # create csv file with first column is prediction, second column is key
         df_predictions = pd.DataFrame(predictions)
         compare = pd.concat([df_predictions, Y], axis=1, join='inner')
-        compare.to_csv(path_or_buf=f'classified_{DATA_FILE}.csv', index=False)
+        compare.to_csv(path_or_buf=f'classified_{DATA_FILE}_{self.orders}-order.csv', index=False)
 
         # calculate cost function: J_theta = 1/m * sigma((h_theta_n - y_n)**2)
         J_theta = 1 / m * np.sum(np.square(np.subtract(predictions, Y.to_numpy())))
@@ -129,7 +129,7 @@ class Regression():
         plt.xlabel('Feature Value')
         plt.ylabel('Class Label')
 
-        plt.margins(x=0, y=0) # eliminate whitespace surround plot
+        #plt.margins(x=0, y=0) # eliminate whitespace surround plot
         plt.savefig(f'visualize_{self.orders}-order_{DATA_FILE}.png', bbox_inches='tight')
         plt.show() # display plot and export to file
 
@@ -141,10 +141,18 @@ def main():
     X = pd.DataFrame(data.iloc[:, :label_index])    # features
     Y = pd.DataFrame(data.iloc[:, label_index])     # classlabel
 
-    # create linear regression model
-    model = Regression(X, Y, NUM_ORDERS, ALPHA, NUM_EPOCHS)
-    # output mean squared error
-    print(model.loss_function(X, Y))
-    model.visualize_model()
+    # create polynomial regression model for each polynomial order
+    for order in ORDERS:
+        model = Regression(X, Y, order, ALPHA, NUM_EPOCHS)
+        # output polynomial order
+        print('--------------------------------------------')
+        print(DATA_FILE, f'{order}-order polynomial model')
+        # output weights of regression model
+        print('Weights:', model.thetas)
+        # output mean squared error
+        print('Mean Squared Error =', model.calculate_MSE(X, Y))
+        # draw graph with regression line
+        model.visualize_model()
+        print()
 
 main()
