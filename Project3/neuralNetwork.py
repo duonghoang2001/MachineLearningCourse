@@ -6,8 +6,8 @@
 '''
     Purpose: predict the handwritten number using the pixel of a 28x28 image
     Pre-cond: a mnist training data csv file and a mnist testing data csv file
-    Post-cond: decision tree, predicted handwritten number, 
-                and accuracy of classifier
+    Post-cond: multilayer perceptron model, predicted handwritten number, 
+                and accuracy of binary classifier
 
 '''
 
@@ -21,6 +21,7 @@ NUM_OUTPUT_NODES = 1            # binary
 NUM_HIDDEN_LAYER_NODES = 5
 
 # import libraries
+from email import header
 import pandas as pd
 import numpy as np
 
@@ -126,9 +127,9 @@ class NeuralNetwork():
 
         # get model predictions
         predictions = self.predict(norm_X)
-
+        
         # create csv file with first column is prediction, second column is key
-        nn_predictions = pd.DataFrame(predictions, columns=['predict'])
+        nn_predictions = pd.DataFrame(predictions, columns=None)
         compare = pd.concat([nn_predictions, Y], axis=1, join='inner')
         compare.to_csv(path_or_buf=f'classified_{TESTING_FILE}.csv', index=False)
 
@@ -143,12 +144,12 @@ class NeuralNetwork():
 
 def main():
     # read training data
-    train_data = pd.read_csv(f'{TRAINING_FILE}.csv')   
+    train_data = pd.read_csv(f'{TRAINING_FILE}.csv', header=None)   
     train_X = pd.DataFrame(train_data.iloc[:, 1:])    # features
     train_Y = pd.DataFrame(train_data.iloc[:, 0])     # class label
 
     # read testing data
-    test_data = pd.read_csv(f'{TESTING_FILE}.csv')   
+    test_data = pd.read_csv(f'{TESTING_FILE}.csv', header=None)   
     test_X = pd.DataFrame(test_data.iloc[:, 1:])    # features
     test_Y = pd.DataFrame(test_data.iloc[:, 0])     # class label
 
