@@ -1,11 +1,11 @@
 # Project 4: Text Generation with RNNs
 # Author: Duong Hoang
 # CS 460G - 001
-# Due Date: Apr 11th, 2022
+# Due Date: Apr 24th, 2022
 
 '''
-    Purpose: predict the handwritten number using the pixel of a 28x28 image
-    Pre-cond: a mnist training data csv file and a mnist testing data csv file
+    Purpose: predict the 
+    Pre-cond: a text file
     Post-cond: multilayer perceptron model, predicted handwritten number, 
                 and accuracy of multiclass classifier
 
@@ -14,149 +14,232 @@
 ### Implementation ###
 
 # initialize
-DATA_FILE = 'tiny-shakespeare.txt'
-ALPHA = 0.1                     # learning rate
-NUM_EPOCHS = 150
-NUM_HIDDEN_LAYER_NODES = 100
-NUM_HIDDEN_LAYERS = 1   
+DATA_FILE = 'tiny-shakespeare.txt'  # text
+ALPHA = 0.005                       # learning rate
+NUM_EPOCHS = 50                     # iterations
+BATCH_SIZE = 80                     # size of mini batch 
+SEQUENCE_LEN = 80                   # sequence length
+NUM_HIDDEN_LAYER_NODES = 300        # hidden nodes per layer
+NUM_HIDDEN_LAYERS = 3               # hidden layers
+DROPOUT_RATE =  0.5                 # dropout layer rate
+OUTPUT_FILE = "generated_char.txt"  
 
 # import libraries
 import numpy as np
 import torch
-from torch import device, nn
-from torch import optim
-from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
+from torch import nn
 
-# initialize
+# check if GPU is available
+has_cuda = torch.cuda.is_available()
+# assign device
+device = torch.device("cuda" if has_cuda else "cpu")
 
-
-def create_one_hot(sequence, vocab_size):
-    #Tensor is of the form (batch size, sequence length, one-hot length)
-    encoding = np.zeros((1, len(sequence), vocab_size), dtype=np.float32)
-    
-    for i in range(len(sequence)):
-        encoding[0, i, sequence[i]] = 1
-        
-    return encoding
-    
 
 class RNNModel(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size, num_layers):
+    def __init__(self, input_size, output_size, hidden_size, num_layers, drop_rate):
         super(RNNModel, self).__init__()
         
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        
-        # Define the network!
-		# Batch first defines where the batch parameter is in the tensor
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first = True)
-        # Fully connected layers
+        # Dropout layer
+        self.dropout = nn.Dropout(drop_rate)
+        # define the network
+        # batch first defines where the batch parameter is in the tensor
+        self.rnn = nn.LSTM(input_size, hidden_size, num_layers, 
+                    dropout=drop_rate, batch_first=True)
+        # fully connected layers
         self.fc = nn.Linear(hidden_size, output_size)
         
-    def forward(self, x):
-        hidden_state = self.init_hidden()
-
+    def forward(self, x, hidden_state):
+        # get outputs and hidden state from rnn
         output, hidden_state = self.rnn(x, hidden_state)
+        # pass output through dropout layer to avoid overfitting
+        output = self.dropout(output)
+        # stack up outputs
         output = output.contiguous().view(-1, self.hidden_size)
-        output = self.fc(output)
-        
+        # pass through fully-connected layer
+        output = self.fc(output) 
+        # output: [seq_len * batch_size, vocab_size]
         return output, hidden_state
         
-    def init_hidden(self):
-        #Hey,this is our hidden state. Hopefully if we don't have a batch it won't yell at us
-        #Also a note, pytorch, by default, wants the batch index to be the middle dimension here. 
-        #So it looks like (row, BATCH, column)
-        hidden = torch.zeros(self.num_layers, 1, self.hidden_size)
-        return hidden
+    def init_hidden(self, batch_size):
+        # initialize rnn states
+        return (torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device), 
+                torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device))
 
-class CharRNN(RNNModel):
-    def __init__(self, sentences, hidden_size, num_layers, learning_rate, num_epochs):
-        self.sentences = sentences
-        self.intChar = dict(enumerate(set(''.join(sentences))))
-        self.charInt = {character: index for index, character in self.intChar.items()}
-        self.vocab_size = len(self.charInt)
-        self.model = self.train(sentences, hidden_size, num_layers, learning_rate, num_epochs)
 
-    def create_sequences(self, sentences):
-        # offset input and output sentences
-        input_sequence = []
-        target_sequence = []
-        for i in range(len(sentences)):
+def create_sequences(charInt: dict, data: str, batch_size: int, seq_len: int):
+        # replace all characters with integer
+        sentences = np.array([charInt[ch] for ch in data])
+        # calculate total batch size that make up from sequences
+        total_batch_size = batch_size * seq_len
+        # total number of batches can be created
+        num_batches = len(sentences) // total_batch_size
+        # cut off left over characters that don't make a batch
+        sentences = sentences[:num_batches * total_batch_size]
+        # reshape into batch_size length rows
+        sentences = sentences.reshape((batch_size, -1))
+        
+        # create mini batches
+        for i in range(0, sentences.shape[1], seq_len):
+            # offset input and output sentences
             # remove the last character from the input sequence
-            input_sequence.append(sentences[i][:-1])
+            input_sequence = sentences[:, i:i+seq_len]
             # remove the first element from target sequences
-            target_sequence.append(sentences[i][1:])
+            target_sequence = np.zeros_like(input_sequence)
+            try:
+                target_sequence[:, :-1], target_sequence[:, -1] = input_sequence[:, 1:], sentences[:, i+seq_len]
+            except IndexError:
+                target_sequence[:, :-1], target_sequence[:, -1] = input_sequence[:, 1:], sentences[:, 0]
+                
+            yield input_sequence, target_sequence
 
-        # construct the one hots! First step, replace all characters with integer
-        for i in range(len(sentences)):
-            input_sequence[i] = [self.charInt[character] for character in input_sequence[i]]
-            target_sequence[i] = [self.charInt[character] for character in target_sequence[i]]
-        
-        return input_sequence, target_sequence
 
-    def get_device(self):
-        # check the device
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            print("GPU is available")
-        else:
-            device = torch.device("cpu")
-            print("GPU not available, CPU used")
-        
-        return device
-
-    def train(self, sentences, hidden_size, num_layers, learning_rate, num_epochs):
-        # get sequences
-        input_sequence, target_sequence = self.create_sequences(sentences)
-        # get device
-        device = self.get_device()
-        # create RNN model
-        model = RNNModel(self.vocab_size, self.vocab_size, hidden_size, num_layers)
-        # define loss
-        loss = nn.CrossEntropyLoss()
-        # use Adam
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-        for epoch in range(num_epochs):
-            for i in range(len(input_sequence)):
-                optimizer.zero_grad()
-                x = torch.from_numpy(create_one_hot(input_sequence[i], self.vocab_size))
-                x.to(device)
-                y = torch.Tensor(target_sequence[i])
-                output, hidden = model(x)
-
-                loss_val = loss(output, y.view(-1).long())
-                loss_val.backward() # backpropagation
-                optimizer.step()
-
-        print("Loss: {:.4f}".format(loss_val.item()))
-        
-        return model
-
-    def predict(self, model, character):
-        
-        characterInput = np.array([self.charInt[c] for c in character])
-        characterInput = create_one_hot(characterInput, self.vocab_size)
-        characterInput = torch.from_numpy(characterInput)
-        out, hidden = model(characterInput)
-        
-        #Get output probabilities
-        prob = nn.functional.softmax(out[-1], dim=0).data
-        
-        character_index = torch.max(prob, dim=0)[1].item()
-        
-        return self.intChar[character_index], hidden
+def create_one_hot(sequence: np.array, vocab_size: int):
+    # Tensor is of the form (batch size, sequence length, one-hot length)
+    encoding = np.zeros((np.multiply(*sequence.shape), vocab_size), dtype=np.float32)
+    encoding[np.arange(encoding.shape[0]), sequence.flatten()] = 1
+    encoding =  encoding.reshape((*sequence.shape, vocab_size))
     
+    return encoding
+    
+
+
+def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: int, 
+        num_epochs: int, learning_rate: float, clip=5):
+    '''Train RNN model'''
+
+    # get vocab size
+    vocab_size = len(charInt)
+    # define loss
+    loss = nn.CrossEntropyLoss()
+    # use Adam
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    # start training
+    print("Start Training RNN model...")
+    model.train()   
+    if torch.cuda.is_available(): model.cuda()
+    else: model.cpu()
+    
+    for i in range(num_epochs):
+        # initialize hidden state
+        hidden = model.init_hidden(batch_size)
+        current_loss = 0
+
+        for x, y in create_sequences(charInt, data, batch_size, seq_len):
+            # encode batch into one-hot vector and make it Torch tensor
+            x = create_one_hot(x, vocab_size)
+            inputs, targets = torch.from_numpy(x), torch.from_numpy(y)
+            
+            if has_cuda: inputs, targets = inputs.cuda(), targets.cuda()
+
+            # Creating new variables for the hidden state, otherwise
+            hidden = tuple([var.data for var in hidden])
+
+            # clear previous gradients
+            optimizer.zero_grad()
+            
+            # Get the output from the model
+            output, hidden = model(inputs, hidden)
+            
+            # Calculate the loss and perform backprop
+            lossValue = loss(output, targets.view(batch_size * len(y)).long())
+            lossValue.backward()
+
+            # prevent the exploding gradient problem in RNNs/LSTMs.
+            nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+            
+            current_loss = lossValue.item()
+            
+        print(f"Epoch {i}: Loss = {current_loss:.4f}...") 
+
+
+# Defining a method to generate the next character
+def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
+        '''Return next character'''
+        
+        vocab_size = len(charInt)
+        # Tensor inputs
+        x = np.array([[charInt[char]]])
+        x = create_one_hot(x, vocab_size)
+        inputs = torch.from_numpy(x)
+        
+        if has_cuda: inputs = inputs.cuda()
+        
+        # detach hidden state from history
+        hidden = tuple([var.data for var in hidden])
+        # get the output of the model
+        out, hidden =  model(inputs, hidden)
+
+        # get the character probabilities
+        prob = F.softmax(out, dim=1).data
+        if has_cuda: prob = prob.cpu() 
+        
+        # Get top characters
+        if top_k is None:
+            top_ch = np.arange(vocab_size)
+        else:
+            prob, top_ch = prob.topk(top_k)
+            top_ch = top_ch.numpy().squeeze()
+        
+        # Select the likely next character with some element of randomness
+        prob = prob.numpy().squeeze()
+        char = np.random.choice(top_ch, p=prob/prob.sum())
+        
+        # return the encoded value of the predicted char and the hidden state
+        return intChar[char], hidden
+        
+
+def sample(model: RNNModel, intChar: dict, size, prime='QUEEN:', top_k=None):
+    '''Return new text'''
+
+    if has_cuda: model.cuda()
+    else: model.cpu()
+    
+    # Evaluate model
+    model.eval() 
+    
+    # run through the prime characters
+    chars = [ch for ch in prime]
+    h = model.init_hidden(1)
+    for ch in prime:
+        char, h = predict(model, ch, h, top_k=top_k)
+
+    chars.append(char)
+    
+    # pass in the previous character and get a new one
+    for ii in range(size):
+        char, h = predict(model, chars[-1], h, top_k=top_k)
+        chars.append(char)
+
+    return ''.join(chars)
 
 def main():
     # read txt file
     file = open(DATA_FILE, 'r')
-    sentences = file.readlines()
+    sentences = file.read()
     file.close()
 
     # create char-RNN model
-    model = CharRNN(sentences, NUM_HIDDEN_LAYER_NODES, NUM_HIDDEN_LAYERS, NUM_EPOCHS)
+    intChar = dict(enumerate(tuple(set(sentences))))
+    charInt = {character: index for index, character in intChar.items()}
+    vocab_size = len(charInt)  
+    model = RNNModel(vocab_size, vocab_size, NUM_HIDDEN_LAYER_NODES, 
+                    NUM_HIDDEN_LAYERS, DROPOUT_RATE)
+    # training the model
+    train(model, sentences, charInt, BATCH_SIZE, SEQUENCE_LEN, NUM_EPOCHS, ALPHA)
 
-    
+    # output text generation
+    print("\n\nSAMPLE:\n---------------------------------------\n")
+    # generate text
+    text_sample = sample(model, 1000, 'QUEEN', top_k=7)
+    print(text_sample)
+
+    # save output to a file
+    f = open(OUTPUT_FILE, "w")
+    f.write(text_sample)
+    f.close()
 main()
