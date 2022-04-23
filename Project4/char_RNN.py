@@ -16,11 +16,11 @@
 # initialize
 DATA_FILE = 'tiny-shakespeare.txt'  # text
 ALPHA = 0.005                       # learning rate
-NUM_EPOCHS = 50                     # iterations
+NUM_EPOCHS = 10                     # iterations
 BATCH_SIZE = 80                     # size of mini batch 
 SEQUENCE_LEN = 80                   # sequence length
-NUM_HIDDEN_LAYER_NODES = 300        # hidden nodes per layer
-NUM_HIDDEN_LAYERS = 3               # hidden layers
+NUM_HIDDEN_LAYER_NODES = 800        # hidden nodes per layer
+NUM_HIDDEN_LAYERS = 2               # hidden layers
 DROPOUT_RATE =  0.5                 # dropout layer rate
 OUTPUT_FILE = "generated_char.txt"  
 
@@ -105,7 +105,6 @@ def create_one_hot(sequence: np.array, vocab_size: int):
     return encoding
     
 
-
 def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: int, 
         num_epochs: int, learning_rate: float, clip=5):
     '''Train RNN model'''
@@ -135,29 +134,29 @@ def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: i
             
             if has_cuda: inputs, targets = inputs.cuda(), targets.cuda()
 
-            # Creating new variables for the hidden state, otherwise
+            # otherwise, creating new variables for the hidden state
             hidden = tuple([var.data for var in hidden])
 
             # clear previous gradients
             optimizer.zero_grad()
             
-            # Get the output from the model
+            # get model's output 
             output, hidden = model(inputs, hidden)
             
-            # Calculate the loss and perform backprop
+            # calculate loss and perform backprop
             lossValue = loss(output, targets.view(batch_size * len(y)).long())
             lossValue.backward()
 
-            # prevent the exploding gradient problem in RNNs/LSTMs.
+            # prevent the exploding gradient problem
             nn.utils.clip_grad_norm_(model.parameters(), clip)
             optimizer.step()
             
             current_loss = lossValue.item()
-            
+        
+        # report loss
         print(f"Epoch {i}: Loss = {current_loss:.4f}...") 
 
 
-# Defining a method to generate the next character
 def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
         '''Return next character'''
         
@@ -178,14 +177,14 @@ def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
         prob = F.softmax(out, dim=1).data
         if has_cuda: prob = prob.cpu() 
         
-        # Get top characters
+        # get top characters
         if top_k is None:
             top_ch = np.arange(vocab_size)
         else:
             prob, top_ch = prob.topk(top_k)
             top_ch = top_ch.numpy().squeeze()
         
-        # Select the likely next character with some element of randomness
+        # select the likely next character with some element of randomness
         prob = prob.numpy().squeeze()
         char = np.random.choice(top_ch, p=prob/prob.sum())
         
@@ -193,26 +192,26 @@ def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
         return intChar[char], hidden
         
 
-def sample(model: RNNModel, intChar: dict, size, prime='QUEEN:', top_k=None):
+def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=None):
     '''Return new text'''
 
     if has_cuda: model.cuda()
     else: model.cpu()
     
-    # Evaluate model
+    # evaluate model
     model.eval() 
     
     # run through the prime characters
     chars = [ch for ch in prime]
-    h = model.init_hidden(1)
+    hidden = model.init_hidden(1)
     for ch in prime:
-        char, h = predict(model, ch, h, top_k=top_k)
+        char, hidden = predict(model, ch, intChar, charInt, hidden, top_k=top_k)
 
     chars.append(char)
     
     # pass in the previous character and get a new one
-    for ii in range(size):
-        char, h = predict(model, chars[-1], h, top_k=top_k)
+    for i in range(size):
+        char, hidden = predict(model, chars[-1], intChar, charInt, hidden, top_k=top_k)
         chars.append(char)
 
     return ''.join(chars)
@@ -235,7 +234,7 @@ def main():
     # output text generation
     print("\n\nSAMPLE:\n---------------------------------------\n")
     # generate text
-    text_sample = sample(model, 1000, 'QUEEN', top_k=7)
+    text_sample = sample(model, intChar, charInt, 1000, 'QUEEN', top_k=7)
     print(text_sample)
 
     # save output to a file
