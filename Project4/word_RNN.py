@@ -4,7 +4,7 @@
 # Due Date: Apr 24th, 2022
 
 '''
-    Purpose: generate new text character by character 
+    Purpose: generate new text word by word
     Pre-cond: a text file
     Post-cond: RNN model, new sample text of given size
 
@@ -22,7 +22,7 @@ NUM_HIDDEN_LAYER_NODES = 800        # hidden nodes per layer
 NUM_HIDDEN_LAYERS = 2               # hidden layers
 DROPOUT_RATE =  0.5                 # dropout layer rate
 TOP_K = 7                           # most n probable characters
-OUTPUT_FILE = "generated_char.txt"  # sample output to file
+OUTPUT_FILE = "generated_word.txt"  # sample output to file
 
 # import libraries
 import numpy as np
@@ -219,10 +219,16 @@ def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=Non
 def main():
     # read txt file
     file = open(DATA_FILE, 'r')
-    sentences = file.read()
+    data = file.readlines()
+    sentences = []
+    for line in data:
+        for word in line.split():
+            sentences.append(word)
+            sentences.append(" ")
+        sentences.append("\n")
     file.close()
 
-    # create word-RNN model
+    # create char-RNN model
     intChar = dict(enumerate(tuple(set(sentences))))
     charInt = {character: index for index, character in intChar.items()}
     vocab_size = len(charInt)  
