@@ -16,8 +16,8 @@
 DATA_FILE = 'tiny-shakespeare.txt'  # text
 ALPHA = 0.005                       # learning rate
 NUM_EPOCHS = 10                     # iterations
-BATCH_SIZE = 80                     # size of mini batch 
-SEQUENCE_LEN = 80                   # sequence length
+BATCH_SIZE = 40                     # size of mini batch 
+SEQUENCE_LEN = 20                   # sequence length
 NUM_HIDDEN_LAYER_NODES = 800        # hidden nodes per layer
 NUM_HIDDEN_LAYERS = 2               # hidden layers
 DROPOUT_RATE =  0.5                 # dropout layer rate
@@ -144,7 +144,7 @@ def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: i
             output, hidden = model(inputs, hidden)
             
             # calculate loss and perform backprop
-            lossValue = loss(output, targets.view(batch_size * len(y)).long())
+            lossValue = loss(output, targets.view(batch_size * seq_len).long())
             lossValue.backward()
 
             # prevent the exploding gradient problem

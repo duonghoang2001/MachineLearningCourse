@@ -144,7 +144,7 @@ def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: i
             output, hidden = model(inputs, hidden)
             
             # calculate loss and perform backprop
-            lossValue = loss(output, targets.view(batch_size * len(y)).long())
+            lossValue = loss(output, targets.view(batch_size * seq_len).long())
             lossValue.backward()
 
             # prevent the exploding gradient problem
