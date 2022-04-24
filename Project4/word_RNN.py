@@ -14,11 +14,11 @@
 
 # initialize
 DATA_FILE = 'tiny-shakespeare.txt'  # text
-ALPHA = 0.005                       # learning rate
+ALPHA = 0.001                       # learning rate
 NUM_EPOCHS = 10                     # iterations
-BATCH_SIZE = 40                     # size of mini batch 
-SEQUENCE_LEN = 20                   # sequence length
-NUM_HIDDEN_LAYER_NODES = 800        # hidden nodes per layer
+BATCH_SIZE = 30                     # size of mini batch 
+SEQUENCE_LEN = 10                   # sequence length
+NUM_HIDDEN_LAYER_NODES = 300        # hidden nodes per layer
 NUM_HIDDEN_LAYERS = 2               # hidden layers
 DROPOUT_RATE =  0.5                 # dropout layer rate
 TOP_K = 7                           # most n probable characters
@@ -69,7 +69,7 @@ class RNNModel(nn.Module):
                 torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device))
 
 
-def create_sequences(charInt: dict, data: str, batch_size: int, seq_len: int):
+def create_sequences(charInt: dict, data: list, batch_size: int, seq_len: int):
         # replace all characters with integer
         sentences = np.array([charInt[ch] for ch in data])
         # calculate total batch size that make up from sequences
@@ -105,7 +105,7 @@ def create_one_hot(sequence: np.array, vocab_size: int):
     return encoding
     
 
-def train(model: RNNModel, data: str, charInt: dict, batch_size: int, seq_len: int, 
+def train(model: RNNModel, data: list, charInt: dict, batch_size: int, seq_len: int, 
         num_epochs: int, learning_rate: float, clip=5):
     '''Train RNN model'''
 
@@ -228,6 +228,7 @@ def main():
         sentences.append("\n")
     file.close()
 
+    #print(sentences)
     # create char-RNN model
     intChar = dict(enumerate(tuple(set(sentences))))
     charInt = {character: index for index, character in intChar.items()}
@@ -240,7 +241,7 @@ def main():
     # output text generation
     print("\n\nSAMPLE:\n---------------------------------------\n")
     # generate text
-    text_sample = sample(model, intChar, charInt, 1000, 'QUEEN', top_k=7)
+    text_sample = sample(model, intChar, charInt, 1000, ['QUEEN'], top_k=7)
     print(text_sample)
 
     # save output to a file
