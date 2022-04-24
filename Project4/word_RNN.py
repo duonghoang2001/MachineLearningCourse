@@ -76,7 +76,7 @@ def create_sequences(charInt: dict, data: list, batch_size: int, seq_len: int):
         total_batch_size = batch_size * seq_len
         # total number of batches can be created
         num_batches = len(sentences) // total_batch_size
-        # cut off left over characters that don't make a batch
+        # cut off left over words that don't make a batch
         sentences = sentences[:num_batches * total_batch_size]
         # reshape into batch_size length rows
         sentences = sentences.reshape((batch_size, -1))
@@ -157,12 +157,12 @@ def train(model: RNNModel, data: list, charInt: dict, batch_size: int, seq_len: 
         print(f"Epoch {i}: Loss = {current_loss:.4f}...") 
 
 
-def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
-        '''Return next character'''
+def predict(model, word, intChar: dict, charInt: dict, hidden=None, top_k=None):
+        '''Return next word'''
         
         vocab_size = len(charInt)
         # Tensor inputs
-        x = np.array([[charInt[char]]])
+        x = np.array([[charInt[word]]])
         x = create_one_hot(x, vocab_size)
         inputs = torch.from_numpy(x)
         
@@ -171,25 +171,25 @@ def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
         # detach hidden state from history
         hidden = tuple([var.data for var in hidden])
         # get the output of the model
-        out, hidden =  model(inputs, hidden)
+        output, hidden = model(inputs, hidden)
 
-        # get the character probabilities
-        prob = F.softmax(out, dim=1).data
+        # get the word probabilities
+        prob = F.softmax(output, dim=1).data
         if has_cuda: prob = prob.cpu() 
         
-        # get top characters
+        # get top words
         if top_k is None:
             top_ch = np.arange(vocab_size)
         else:
             prob, top_ch = prob.topk(top_k)
             top_ch = top_ch.numpy().squeeze()
         
-        # select the likely next character with some element of randomness
+        # select the likely next word with some element of randomness
         prob = prob.numpy().squeeze()
-        char = np.random.choice(top_ch, p=prob/prob.sum())
+        word = np.random.choice(top_ch, p=prob/prob.sum())
         
-        # return the encoded value of the predicted char and the hidden state
-        return intChar[char], hidden
+        # return the encoded value of the predicted word and the hidden state
+        return intChar[word], hidden
         
 
 def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=None):
@@ -201,23 +201,23 @@ def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=Non
     # evaluate model
     model.eval() 
     
-    # run through the prime characters
-    chars = [ch for ch in prime]
+    # run through the prime words
+    words = [ch for ch in prime]
     hidden = model.init_hidden(1)
-    for ch in prime:
-        char, hidden = predict(model, ch, intChar, charInt, hidden, top_k=top_k)
+    for wd in prime:
+        word, hidden = predict(model, wd, intChar, charInt, hidden, top_k=top_k)
 
-    chars.append(char)
+    words.append(word)
     
-    # pass in the previous character and get a new one
+    # pass in the previous word and generate a new one
     for i in range(size):
-        char, hidden = predict(model, chars[-1], intChar, charInt, hidden, top_k=top_k)
-        chars.append(char)
+        word, hidden = predict(model, words[-1], intChar, charInt, hidden, top_k=top_k)
+        words.append(word)
 
-    return ''.join(chars)
+    return ''.join(words)
 
 def main():
-    # read txt file
+    # read txt file and split lines into a list of words
     file = open(DATA_FILE, 'r')
     data = file.readlines()
     sentences = []
@@ -228,8 +228,7 @@ def main():
         sentences.append("\n")
     file.close()
 
-    #print(sentences)
-    # create char-RNN model
+    # create word-RNN model
     intChar = dict(enumerate(tuple(set(sentences))))
     charInt = {character: index for index, character in intChar.items()}
     vocab_size = len(charInt)  

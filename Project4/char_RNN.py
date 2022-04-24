@@ -171,10 +171,10 @@ def predict(model, char, intChar: dict, charInt: dict, hidden=None, top_k=None):
         # detach hidden state from history
         hidden = tuple([var.data for var in hidden])
         # get the output of the model
-        out, hidden =  model(inputs, hidden)
+        output, hidden =  model(inputs, hidden)
 
         # get the character probabilities
-        prob = F.softmax(out, dim=1).data
+        prob = F.softmax(output, dim=1).data
         if has_cuda: prob = prob.cpu() 
         
         # get top characters
@@ -209,7 +209,7 @@ def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=Non
 
     chars.append(char)
     
-    # pass in the previous character and get a new one
+    # pass in the previous character and generate a new one
     for i in range(size):
         char, hidden = predict(model, chars[-1], intChar, charInt, hidden, top_k=top_k)
         chars.append(char)
