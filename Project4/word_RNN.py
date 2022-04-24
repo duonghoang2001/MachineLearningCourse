@@ -202,7 +202,7 @@ def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=Non
     model.eval() 
     
     # run through the prime words
-    words = [ch for ch in prime]
+    words = [wd for wd in prime]
     hidden = model.init_hidden(1)
     for wd in prime:
         word, hidden = predict(model, wd, intChar, charInt, hidden, top_k=top_k)
@@ -229,18 +229,18 @@ def main():
     file.close()
 
     # create word-RNN model
-    intChar = dict(enumerate(tuple(set(sentences))))
-    charInt = {character: index for index, character in intChar.items()}
-    vocab_size = len(charInt)  
+    intWord = dict(enumerate(tuple(set(sentences))))
+    wordInt = {word: index for index, word in intWord.items()}
+    vocab_size = len(wordInt)  
     model = RNNModel(vocab_size, vocab_size, NUM_HIDDEN_LAYER_NODES, 
                     NUM_HIDDEN_LAYERS, DROPOUT_RATE)
     # training the model
-    train(model, sentences, charInt, BATCH_SIZE, SEQUENCE_LEN, NUM_EPOCHS, ALPHA)
+    train(model, sentences, wordInt, BATCH_SIZE, SEQUENCE_LEN, NUM_EPOCHS, ALPHA)
 
     # output text generation
     print("\n\nSAMPLE:\n---------------------------------------\n")
     # generate text
-    text_sample = sample(model, intChar, charInt, 1000, ['QUEEN'], top_k=7)
+    text_sample = sample(model, intWord, wordInt, 1000, ['QUEEN'], top_k=7)
     print(text_sample)
 
     # save output to a file
