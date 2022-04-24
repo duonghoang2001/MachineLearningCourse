@@ -21,7 +21,7 @@ SEQUENCE_LEN = 10                   # sequence length
 NUM_HIDDEN_LAYER_NODES = 300        # hidden nodes per layer
 NUM_HIDDEN_LAYERS = 2               # hidden layers
 DROPOUT_RATE =  0.5                 # dropout layer rate
-TOP_K = 7                           # most n probable characters
+TOP_K = 7                           # most n probable words
 OUTPUT_FILE = "generated_word.txt"  # sample output to file
 
 # import libraries
