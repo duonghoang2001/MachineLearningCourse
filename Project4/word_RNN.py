@@ -168,7 +168,6 @@ def predict(model, word, intChar: dict, charInt: dict, hidden=None, top_k=None):
         
         if has_cuda: inputs = inputs.cuda()
         
-        # detach hidden state from history
         hidden = tuple([var.data for var in hidden])
         # get the output of the model
         output, hidden = model(inputs, hidden)
@@ -184,11 +183,11 @@ def predict(model, word, intChar: dict, charInt: dict, hidden=None, top_k=None):
             prob, top_ch = prob.topk(top_k)
             top_ch = top_ch.numpy().squeeze()
         
-        # select the likely next word with some element of randomness
+        # choose next word randomly
         prob = prob.numpy().squeeze()
         word = np.random.choice(top_ch, p=prob/prob.sum())
         
-        # return the encoded value of the predicted word and the hidden state
+        # return the encoded predicted word and the hidden state
         return intChar[word], hidden
         
 
@@ -209,7 +208,7 @@ def sample(model: RNNModel, intChar: dict, charInt: dict, size, prime, top_k=Non
 
     words.append(word)
     
-    # pass in the previous word and generate a new one
+    # pass in word and generate the next one
     for i in range(size):
         word, hidden = predict(model, words[-1], intChar, charInt, hidden, top_k=top_k)
         words.append(word)
@@ -234,7 +233,8 @@ def main():
     vocab_size = len(wordInt)  
     model = RNNModel(vocab_size, vocab_size, NUM_HIDDEN_LAYER_NODES, 
                     NUM_HIDDEN_LAYERS, DROPOUT_RATE)
-    # training the model
+    
+    # train the model
     train(model, sentences, wordInt, BATCH_SIZE, SEQUENCE_LEN, NUM_EPOCHS, ALPHA)
 
     # output text generation
